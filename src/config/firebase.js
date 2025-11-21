@@ -3,14 +3,13 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-    apiKey: "AIzaSyB5fQmCYBciqATq3HbaCdqOjIoFUFZmGtk",
-    authDomain: "iyf-sadhna-tracker.firebaseapp.com",
-    projectId: "iyf-sadhna-tracker",
-    storageBucket: "iyf-sadhna-tracker.firebasestorage.app",
-    messagingSenderId: "372996148813",
-    appId: "1:372996148813:web:b917a3f764efa356519604"
+  apiKey: "AIzaSyD2Tn8P-uxW6mF4y6qAOSTczivjtvaja04",
+  authDomain: "react-sadhana-av-27.firebaseapp.com",
+  projectId: "react-sadhana-av-27",
+  storageBucket: "react-sadhana-av-27.firebasestorage.app",
+  messagingSenderId: "116299810862",
+  appId: "1:116299810862:web:8f9afc1f6efac78f7ef7bf"
 };
-
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
