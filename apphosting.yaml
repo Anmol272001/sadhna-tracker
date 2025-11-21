@@ -1,0 +1,48 @@
+# Firebase App Hosting Configuration
+# This file configures environment variables for the build and runtime
+
+env:
+  # Firebase Configuration - Available to both build and runtime
+  - variable: REACT_APP_FIREBASE_API_KEY
+    value: AIzaSyD2Tn8P-uxW6mF4y6qAOSTczivjtvaja04
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: REACT_APP_FIREBASE_AUTH_DOMAIN
+    value: react-sadhana-av-27.firebaseapp.com
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: REACT_APP_FIREBASE_PROJECT_ID
+    value: react-sadhana-av-27
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: REACT_APP_FIREBASE_STORAGE_BUCKET
+    value: react-sadhana-av-27.firebasestorage.app
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: REACT_APP_FIREBASE_MESSAGING_SENDER_ID
+    value: "116299810862"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: REACT_APP_FIREBASE_APP_ID
+    value: 1:116299810862:web:8f9afc1f6efac78f7ef7bf
+    availability:
+      - BUILD
+      - RUNTIME
+
+# Cloud Run service settings (optional - using defaults for now)
+# runConfig:
+#   minInstances: 0
+#   maxInstances: 100
+#   concurrency: 80
+#   cpu: 1
+#   memoryMiB: 512
