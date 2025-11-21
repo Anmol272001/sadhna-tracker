@@ -4,28 +4,27 @@
 
 /* Ocean Theme: Deep blues, aquas, and sandy whites */
 :root {
-  --ocean-dark: #073b4c;  /* Deep ocean blue for text, headers */
-  --ocean-light: #f0f9ff; /* Light sky blue for backgrounds */
-  --accent-aqua: #118ab2;  /* Bright aqua for buttons, highlights */
-  --accent-coral: #ef476f; /* A pop of contrast */
+  --ocean-dark: #073b4c;
+  --ocean-light: #f0f9ff;
+  --accent-aqua: #118ab2;
+  --accent-coral: #ef476f;
   --text-ocean-dark: #073b4c;
   --text-ocean-light: #334155;
-  --border-color: #d1e5f0; /* Borders, dividers */
+  --border-color: #d1e5f0;
 }
 
 body {
-  background-color: #f8fafc; /* Slightly off-white */
+  background-color: #f8fafc;
   color: var(--text-ocean-dark);
   font-family: 'Inter', sans-serif;
-  /* Fix for horizontal scroll bug */
   overflow-x: hidden;
-  width: 100%; /* Ensure body doesn't overflow */
+  width: 100%;
 }
 
 /* Reusable Card Component */
 .ocean-card {
   background-color: white;
-  border-radius: 1rem; /* More rounded */
+  border-radius: 1rem;
   border: 1px solid var(--border-color);
   box-shadow: 0 4px 12px rgba(7, 59, 76, 0.05);
   transition: all 0.3s ease-in-out;
@@ -42,11 +41,13 @@ body {
   @apply text-gray-500;
 }
 .tab-btn:hover {
-  @apply text-ocean-dark;
+  /* Fixed: Used CSS variable instead of Tailwind apply */
+  color: var(--ocean-dark);
   border-color: var(--border-color);
 }
 .tab-btn.active {
-  @apply text-accent-aqua;
+  /* Fixed: Used CSS variable instead of Tailwind apply */
+  color: var(--accent-aqua);
   border-color: var(--accent-aqua);
 }
 
@@ -55,10 +56,13 @@ body {
   @apply block text-sm font-semibold text-gray-700 mb-1.5;
 }
 .form-input-ocean {
-  @apply w-full px-4 py-2.5 border border-border-color rounded-lg shadow-sm;
-  @apply focus:outline-none focus:ring-2 focus:ring-accent-aqua focus:border-transparent;
+  @apply w-full px-4 py-2.5 border rounded-lg shadow-sm;
+  border-color: var(--border-color);
+  @apply focus:outline-none focus:ring-2 focus:border-transparent;
+  /* focus:ring-accent-aqua replacement: */
+  --tw-ring-color: var(--accent-aqua);
   @apply transition-all duration-200;
-  background-color: #f8fafc; /* Very light gray */
+  background-color: #f8fafc;
 }
 .form-input-ocean:focus {
   background-color: white;
@@ -66,13 +70,19 @@ body {
 
 /* Button Styles */
 .btn-primary-ocean {
-  @apply py-2.5 px-5 bg-accent-aqua text-white font-semibold rounded-lg shadow-md;
-  @apply hover:bg-ocean-dark focus:outline-none focus:ring-2 focus:ring-accent-aqua focus:ring-opacity-50;
+  @apply py-2.5 px-5 text-white font-semibold rounded-lg shadow-md;
+  background-color: var(--accent-aqua);
+  @apply focus:outline-none focus:ring-2 focus:ring-opacity-50;
+  --tw-ring-color: var(--accent-aqua);
   @apply transition-all duration-300 ease-in-out;
   @apply flex items-center justify-center gap-2;
 }
 
-/* Loading Spinner Animation */
+.btn-primary-ocean:hover {
+  background-color: var(--ocean-dark);
+}
+
+/* Loading Spinner */
 .loader {
   width: 48px;
   height: 48px;
@@ -85,10 +95,6 @@ body {
 }
 
 @keyframes rotation {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }

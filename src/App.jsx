@@ -1,40 +1,30 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { initializeApp } from 'firebase/app';
-import { 
-  getAuth, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  signOut, 
-  onAuthStateChanged 
+import React, { useState, useEffect } from 'react';
+import {
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+  onAuthStateChanged
 } from 'firebase/auth';
-import { 
-  getFirestore, 
-  doc, 
-  getDoc, 
-  setDoc, 
-  collection, 
-  query, 
-  getDocs, 
-  orderBy, 
-  limit, 
-  where 
+import {
+  doc,
+  getDoc,
+  setDoc,
+  collection,
+  query,
+  getDocs,
+  orderBy,
+  limit
 } from 'firebase/firestore';
-import { 
-  LayoutDashboard, 
-  Edit3, 
-  BarChart2, 
-  TrendingUp, 
-  LogOut, 
-  User, 
-  Activity, 
-  Sparkles, 
-  HeartHandshake, 
-  FileText, 
-  Search,
+import {
+  LayoutDashboard,
+  Edit3,
+  BarChart2,
+  TrendingUp,
+  LogOut,
+  Activity,
+  Sparkles,
+  FileText,
   Users,
-  RefreshCw,
-  CheckCircle,
-  Calendar,
   Loader2
 } from 'lucide-react';
 import {
@@ -49,328 +39,24 @@ import {
   LineElement,
   ArcElement
 } from 'chart.js';
-import { Bar, Line, Doughnut } from 'react-chartjs-2';
+import { Line } from 'react-chartjs-2';
 
-// --- 1. FIREBASE CONFIGURATION ---
-// Using your specific config to ensure it works immediately
-const firebaseConfig = {
-  apiKey: "AIzaSyB5fQmCYBciqATq3HbaCdqOjIoFUFZmGtk",
-  authDomain: "iyf-sadhna-tracker.firebaseapp.com",
-  projectId: "iyf-sadhna-tracker",
-  storageBucket: "iyf-sadhna-tracker.firebasestorage.app",
-  messagingSenderId: "372996148813",
-  appId: "1:372996148813:web:b917a3f764efa356519604"
-};
+// Config & Utils
+import { auth, db, firebaseConfig } from './config/firebase';
+import { getFormattedDate, calculateScores } from './utils/helpers';
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// Components
+import StatCard from './components/StatCard';
+import EntryForm from './components/EntryForm';
+import MentorDashboard from './components/MentorDashboard';
 
 // Register ChartJS
 ChartJS.register(
-  CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, 
+  CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
   PointElement, LineElement, ArcElement
 );
 
-// --- 2. HELPER FUNCTIONS ---
-const getFormattedDate = (date) => date.toISOString().split('T')[0];
-
-const calculateScores = (data) => {
-  // Body (75)
-  let wakeUpScore = 0;
-  if (data.wakeUpTime) {
-    if (data.wakeUpTime <= "04:30") wakeUpScore = 25;
-    else if (data.wakeUpTime <= "04:40") wakeUpScore = 20;
-    else if (data.wakeUpTime <= "04:45") wakeUpScore = 15;
-    else if (data.wakeUpTime <= "05:00") wakeUpScore = 10;
-  }
-
-  let daySleepScore = 0;
-  const sleepMins = parseInt(data.daySleep) || 0;
-  if (sleepMins <= 60) daySleepScore = 25;
-  else if (sleepMins <= 70) daySleepScore = 20;
-  else if (sleepMins <= 80) daySleepScore = 15;
-  else if (sleepMins <= 90) daySleepScore = 10;
-  else if (sleepMins <= 100) daySleepScore = 5;
-
-  let toBedScore = 0;
-  if (data.toBedTime) {
-    if (data.toBedTime <= "21:30") toBedScore = 25;
-    else if (data.toBedTime <= "21:45") toBedScore = 20;
-    else if (data.toBedTime <= "22:00") toBedScore = 15;
-    else if (data.toBedTime <= "22:15") toBedScore = 10;
-    else if (data.toBedTime <= "22:30") toBedScore = 5;
-  }
-
-  // Soul (40)
-  let japaScore = 0;
-  if (data.japaTime) {
-    if (data.japaTime <= "08:00") japaScore = 25;
-    else if (data.japaTime <= "10:00") japaScore = 20;
-    else if (data.japaTime <= "12:00") japaScore = 15;
-    else if (data.japaTime <= "14:00") japaScore = 10;
-    else if (data.japaTime <= "18:00") japaScore = 5;
-  }
-
-  const scoreMap = { 'present': 5, 'late': 3, 'absent': 0 };
-  const mpScore = (scoreMap[data.shikshastakam] || 0) + 
-                  (scoreMap[data.mangalAarti] || 0) + 
-                  (scoreMap[data.morningClass] || 0);
-
-  // Sadhana (65)
-  const spMins = parseInt(data.readSpMins) || 0;
-  const slokaMins = parseInt(data.readSlokaMins) || 0;
-  const readScore = (spMins >= 20 ? 25 : (spMins/20)*25) + (slokaMins >= 10 ? 10 : (slokaMins/10)*10);
-
-  const hearTotal = (parseInt(data.hearSpMins)||0) + (parseInt(data.hearSmMins)||0) + (parseInt(data.hearRspMins)||0);
-  const hearScore = hearTotal >= 30 ? 30 : (hearTotal/30)*30;
-
-  return {
-    body: Math.round(wakeUpScore + daySleepScore + toBedScore),
-    soul: Math.round(japaScore + mpScore),
-    sadhana: Math.round(readScore + hearScore),
-    total: Math.round(wakeUpScore + daySleepScore + toBedScore + japaScore + mpScore + readScore + hearScore)
-  };
-};
-
-// --- 3. COMPONENTS ---
-
-// 3a. Dashboard Stats Component
-const StatCard = ({ title, current, max, color, icon: Icon }) => {
-  const percent = Math.round((current / max) * 100);
-  const colorClasses = {
-    blue: 'text-blue-600 bg-blue-500',
-    purple: 'text-purple-600 bg-purple-500',
-    green: 'text-green-600 bg-green-500',
-    ocean: 'text-cyan-700 bg-cyan-600'
-  };
-
-  return (
-    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between transition-transform hover:scale-[1.02]">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-semibold text-gray-700">{title}</h3>
-        <Icon className={`w-5 h-5 ${colorClasses[color].split(' ')[0]}`} />
-      </div>
-      <div className="text-3xl font-bold text-gray-800">
-        {current} <span className="text-sm text-gray-400 font-normal">/ {max}</span>
-      </div>
-      <div className="w-full bg-gray-100 rounded-full h-2 mt-3 overflow-hidden">
-        <div 
-          className={`h-2 rounded-full transition-all duration-500 ${colorClasses[color].split(' ')[1]}`} 
-          style={{ width: `${Math.min(percent, 100)}%` }}
-        ></div>
-      </div>
-      <p className="text-xs text-gray-400 mt-2 text-right">{percent}% Completed</p>
-    </div>
-  );
-};
-
-// 3b. Entry Form Component
-const EntryForm = ({ user, selectedDate, onSave, initialData }) => {
-  const [formData, setFormData] = useState({
-    wakeUpTime: '', daySleep: '', toBedTime: '',
-    japaTime: '', shikshastakam: 'absent', mangalAarti: 'absent', morningClass: 'absent',
-    readSpMins: '', readSlokaMins: '', hearSpMins: '', hearSmMins: '', hearRspMins: '',
-    menialService: '', missionaryService: '', harinamSankirtan: '', dailyNote: ''
-  });
-
-  useEffect(() => {
-    if (initialData) setFormData(initialData);
-  }, [initialData]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave(formData);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in duration-500">
-      {/* Body Section */}
-      <div className="bg-blue-50/50 p-6 rounded-xl border border-blue-100">
-        <h3 className="text-lg font-semibold text-blue-800 pb-2 mb-4 flex items-center gap-2 border-b border-blue-200">
-          <Activity className="w-5 h-5" /> Body (Nidra)
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <label className="block mb-2 text-sm font-medium text-gray-700">Wake Up Time</label>
-            <input type="time" name="wakeUpTime" value={formData.wakeUpTime} onChange={handleChange} className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500" />
-            <p className="text-xs text-gray-500 mt-1">Target: &lt; 04:30</p>
-          </div>
-          <div>
-            <label className="block mb-2 text-sm font-medium text-gray-700">Day Sleep (mins)</label>
-            <input type="number" name="daySleep" value={formData.daySleep} onChange={handleChange} className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500" />
-            <p className="text-xs text-gray-500 mt-1">Target: &lt; 60 mins</p>
-          </div>
-          <div>
-            <label className="block mb-2 text-sm font-medium text-gray-700">Bed Time</label>
-            <input type="time" name="toBedTime" value={formData.toBedTime} onChange={handleChange} className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500" />
-            <p className="text-xs text-gray-500 mt-1">Target: &lt; 21:30</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Soul Section */}
-      <div className="bg-purple-50/50 p-6 rounded-xl border border-purple-100">
-        <h3 className="text-lg font-semibold text-purple-800 pb-2 mb-4 flex items-center gap-2 border-b border-purple-200">
-          <Sparkles className="w-5 h-5" /> Soul (Japa & MP)
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div>
-            <label className="block mb-2 text-sm font-medium text-gray-700">Japa Finish Time</label>
-            <input type="time" name="japaTime" value={formData.japaTime} onChange={handleChange} className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500" />
-            <p className="text-xs text-gray-500 mt-1">Target: &lt; 08:00</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {['shikshastakam', 'mangalAarti', 'morningClass'].map((field) => (
-            <div key={field}>
-              <label className="block mb-2 text-sm font-medium text-gray-700 capitalize">{field.replace(/([A-Z])/g, ' $1')}</label>
-              <select name={field} value={formData[field]} onChange={handleChange} className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 bg-white">
-                <option value="absent">Absent</option>
-                <option value="late">Late</option>
-                <option value="present">Present</option>
-              </select>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Service & Notes */}
-      <div className="bg-orange-50/50 p-6 rounded-xl border border-orange-100">
-         <h3 className="text-lg font-semibold text-orange-800 pb-2 mb-4 flex items-center gap-2 border-b border-orange-200">
-          <HeartHandshake className="w-5 h-5" /> Service & Reflection
-        </h3>
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="col-span-1">
-             <label className="block mb-2 text-xs font-bold text-gray-500 uppercase">Menial</label>
-             <input type="number" name="menialService" value={formData.menialService} onChange={handleChange} className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500" placeholder="mins" />
-          </div>
-           <div className="col-span-1">
-             <label className="block mb-2 text-xs font-bold text-gray-500 uppercase">Missionary</label>
-             <input type="number" name="missionaryService" value={formData.missionaryService} onChange={handleChange} className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500" placeholder="mins" />
-          </div>
-           <div className="col-span-1">
-             <label className="block mb-2 text-xs font-bold text-gray-500 uppercase">Harinam</label>
-             <input type="number" name="harinamSankirtan" value={formData.harinamSankirtan} onChange={handleChange} className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500" placeholder="mins" />
-          </div>
-        </div>
-        <div>
-          <label className="block mb-2 text-sm font-medium text-gray-700 flex items-center gap-2">
-            <FileText className="w-4 h-4" /> Daily Reflection
-          </label>
-          <textarea name="dailyNote" value={formData.dailyNote} onChange={handleChange} rows="3" className="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500" placeholder="Share your insights, realizations, or challenges..."></textarea>
-        </div>
-      </div>
-
-      <button type="submit" className="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-xl text-lg px-5 py-4 shadow-lg transition-all transform hover:-translate-y-1">
-        Save Sadhana Entry
-      </button>
-    </form>
-  );
-};
-
-// 3c. Mentor Dashboard Component (The "Project 3" Feature)
-const MentorDashboard = ({ currentUserId }) => {
-  const [mentees, setMentees] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
-
-  useEffect(() => {
-    const fetchMentees = async () => {
-      setLoading(true);
-      try {
-        // In a real app with secure rules, you would query where("mentorId", "==", currentUserId)
-        // For this demo/portfolio, we fetch users and filter client-side or simulate
-        const usersRef = collection(db, `artifacts/${firebaseConfig.projectId}/users`);
-        const snapshot = await getDocs(usersRef);
-        
-        // Simulating fetching mentees by just grabbing all users for demo purposes
-        // In your interview, explain: "I implemented RBAC where mentors only see their assigned mentees"
-        const menteeList = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          // Mock stats for visual appeal if data is missing
-          avgScore: Math.floor(Math.random() * (180 - 120) + 120), 
-          consistency: Math.floor(Math.random() * (100 - 60) + 60)
-        }));
-        setMentees(menteeList);
-      } catch (err) {
-        console.error("Error fetching mentees:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMentees();
-  }, [currentUserId]);
-
-  const filteredMentees = mentees.filter(m => {
-    if (filter === 'high') return m.avgScore > 150;
-    if (filter === 'low') return m.avgScore < 130;
-    return true;
-  });
-
-  return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">Mentor Dashboard</h2>
-          <p className="text-gray-500">Monitor your mentees' spiritual progress.</p>
-        </div>
-        <div className="flex gap-2">
-          <select 
-            className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          >
-            <option value="all">All Mentees</option>
-            <option value="high">High Performers (&gt;150)</option>
-            <option value="low">Needs Attention (&lt;130)</option>
-          </select>
-          <button className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200">
-            <RefreshCw className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="animate-spin w-8 h-8 text-blue-600" /></div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredMentees.map(mentee => (
-            <div key={mentee.id} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition cursor-pointer group">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-xl">
-                  {mentee.displayName ? mentee.displayName[0] : 'U'}
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-800 group-hover:text-blue-600 transition">{mentee.displayName || 'Unknown User'}</h3>
-                  <p className="text-xs text-gray-500">{mentee.email}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-center">
-                <div className="bg-blue-50 p-2 rounded-lg">
-                  <div className="text-lg font-bold text-blue-700">{mentee.avgScore}</div>
-                  <div className="text-xs text-blue-400">Avg Score</div>
-                </div>
-                <div className="bg-green-50 p-2 rounded-lg">
-                  <div className="text-lg font-bold text-green-700">{mentee.consistency}%</div>
-                  <div className="text-xs text-green-500">Consistency</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// --- 4. MAIN APP ---
+// --- MAIN APP ---
 export default function App() {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -378,7 +64,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard'); // dashboard, entry, history, mentor
   const [entries, setEntries] = useState([]);
   const [selectedDate, setSelectedDate] = useState(getFormattedDate(new Date()));
-  
+
   // Stats State
   const [stats, setStats] = useState({
     today: { total: 0, body: 0, soul: 0, sadhana: 0 },
@@ -400,11 +86,11 @@ export default function App() {
             setUserProfile(profileSnap.data());
           } else {
             // Create default profile
-            const newProfile = { 
-              email: currentUser.email, 
-              displayName: currentUser.displayName, 
+            const newProfile = {
+              email: currentUser.email,
+              displayName: currentUser.displayName,
               role: 'user', // Change to 'mentor' manually in Firestore to test RBAC
-              photoURL: currentUser.photoURL 
+              photoURL: currentUser.photoURL
             };
             await setDoc(profileRef, newProfile);
             setUserProfile(newProfile);
@@ -428,7 +114,7 @@ export default function App() {
       orderBy("date", "desc"),
       limit(30) // Get last 30 days for history
     );
-    
+
     const snapshot = await getDocs(q);
     const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
     setEntries(data);
@@ -436,7 +122,7 @@ export default function App() {
     // Calculate Stats
     const todayStr = getFormattedDate(new Date());
     const todayEntry = data.find(e => e.date === todayStr);
-    
+
     setStats({
       today: todayEntry ? {
         total: todayEntry.totalScore,
@@ -510,13 +196,13 @@ export default function App() {
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden">
         <div className="bg-blue-600 p-8 text-center">
           <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-             <Activity className="w-10 h-10 text-blue-600" />
+            <Activity className="w-10 h-10 text-blue-600" />
           </div>
           <h1 className="text-3xl font-bold text-white">Sadhana Tracker</h1>
           <p className="text-blue-100 mt-2">Track habits. Elevate consciousness.</p>
         </div>
         <div className="p-8">
-          <button 
+          <button
             onClick={handleLogin}
             className="w-full bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-800 font-semibold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3"
           >
@@ -538,14 +224,14 @@ export default function App() {
             <Activity className="w-6 h-6" />
             <span className="text-lg font-bold hidden sm:inline">Sadhana Tracker</span>
           </div>
-          
+
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-6">
             <button onClick={() => setActiveTab('dashboard')} className={`text-sm font-medium transition ${activeTab === 'dashboard' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-900'}`}>Dashboard</button>
             <button onClick={() => setActiveTab('entry')} className={`text-sm font-medium transition ${activeTab === 'entry' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-900'}`}>Entry</button>
             <button onClick={() => setActiveTab('history')} className={`text-sm font-medium transition ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-900'}`}>History</button>
             {(userProfile?.role === 'mentor' || userProfile?.role === 'admin') && (
-               <button onClick={() => setActiveTab('mentor')} className={`text-sm font-medium transition ${activeTab === 'mentor' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-900'}`}>Mentor View</button>
+              <button onClick={() => setActiveTab('mentor')} className={`text-sm font-medium transition ${activeTab === 'mentor' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-900'}`}>Mentor View</button>
             )}
           </div>
 
@@ -564,7 +250,7 @@ export default function App() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 max-w-6xl">
-        
+
         {/* Dashboard Tab */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-in fade-in duration-500">
@@ -611,20 +297,20 @@ export default function App() {
         {activeTab === 'entry' && (
           <div className="max-w-3xl mx-auto">
             <div className="flex justify-between items-center mb-6">
-               <h2 className="text-2xl font-bold text-gray-800">Log Sadhana</h2>
-               <input 
-                type="date" 
-                value={selectedDate} 
+              <h2 className="text-2xl font-bold text-gray-800">Log Sadhana</h2>
+              <input
+                type="date"
+                value={selectedDate}
                 max={getFormattedDate(new Date())}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 className="border rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-500"
-               />
+              />
             </div>
-            <EntryForm 
-              user={user} 
-              selectedDate={selectedDate} 
-              onSave={handleSaveEntry} 
-              initialData={getInitialFormData()} 
+            <EntryForm
+              user={user}
+              selectedDate={selectedDate}
+              onSave={handleSaveEntry}
+              initialData={getInitialFormData()}
             />
           </div>
         )}
@@ -654,10 +340,9 @@ export default function App() {
                         <td className="px-6 py-4">{entry.soulScore}</td>
                         <td className="px-6 py-4">{entry.sadhanaScore}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                            entry.totalScore >= 150 ? 'bg-green-100 text-green-700' :
-                            entry.totalScore >= 100 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                          }`}>
+                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${entry.totalScore >= 150 ? 'bg-green-100 text-green-700' :
+                              entry.totalScore >= 100 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                            }`}>
                             {entry.totalScore}
                           </span>
                         </td>
@@ -698,7 +383,7 @@ export default function App() {
           <span className="text-[10px] mt-1">History</span>
         </button>
         {userProfile?.role === 'mentor' && (
-           <button onClick={() => setActiveTab('mentor')} className={`flex flex-col items-center ${activeTab === 'mentor' ? 'text-blue-600' : 'text-gray-400'}`}>
+          <button onClick={() => setActiveTab('mentor')} className={`flex flex-col items-center ${activeTab === 'mentor' ? 'text-blue-600' : 'text-gray-400'}`}>
             <Users className="w-6 h-6" />
             <span className="text-[10px] mt-1">Mentor</span>
           </button>
